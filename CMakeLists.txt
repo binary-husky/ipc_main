@@ -1,18 +1,17 @@
 cmake_minimum_required (VERSION 3.5)
-project(ipc_main)
-
+project(cppipc_python)
 # set(CMAKE_BUILD_TYPE Debug)
 
 # Create the executable
-add_executable(ipc_main main.cpp)
-
-# Link the static library from subproject1 using its alias sub::lib1
-# Link the header only library from subproject2 using its alias sub::lib2
-# This will cause the include directories for that target to be added to this project
-
-add_subdirectory(cpp-ipc)
-target_link_libraries(ipc_main ipc)
+add_subdirectory(pybind11)
+# add_executable(${PROJECT_NAME} src/main_copy.cpp)
+pybind11_add_module(${PROJECT_NAME} src/main.cpp)
 
 
-# ./ipc_main recv 100
-# ./ipc_main send 100 120
+add_subdirectory(src/cpp-ipc)
+target_link_libraries(${PROJECT_NAME} PRIVATE ipc)
+
+
+
+# ./cppipc_python recv 100
+# ./cppipc_python send 100 120

@@ -1,0 +1,1 @@
+/usr/bin/c++     CMakeFiles/cppipc_python.dir/main_copy.cpp.o  -o cppipc_python  lib/libipc.a -lpthread -lrt 

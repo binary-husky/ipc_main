@@ -39,7 +39,8 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/home/hmp/learn_cmake/ipc_main/build/cpp-ipc/cmake_install.cmake")
+  include("/home/hmp/learn_cmake/ipc_main/build/pybind11/cmake_install.cmake")
+  include("/home/hmp/learn_cmake/ipc_main/build/src/cpp-ipc/cmake_install.cmake")
 
 endif()
 

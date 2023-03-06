@@ -56,18 +56,6 @@ CMAKE_BINARY_DIR = /home/hmp/learn_cmake/ipc_main/build
 #=============================================================================
 # Targets provided globally by CMake.
 
-# Special rule for the target install/strip
-install/strip: preinstall
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
-	/usr/bin/cmake -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
-.PHONY : install/strip
-
-# Special rule for the target install/strip
-install/strip/fast: preinstall/fast
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
-	/usr/bin/cmake -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
-.PHONY : install/strip/fast
-
 # Special rule for the target install/local
 install/local: preinstall
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
@@ -124,6 +112,18 @@ edit_cache/fast: edit_cache
 
 .PHONY : edit_cache/fast
 
+# Special rule for the target install/strip
+install/strip: preinstall
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
+	/usr/bin/cmake -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
+.PHONY : install/strip
+
+# Special rule for the target install/strip
+install/strip/fast: preinstall/fast
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
+	/usr/bin/cmake -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
+.PHONY : install/strip/fast
+
 # The main all target
 all: cmake_check_build_system
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/hmp/learn_cmake/ipc_main/build/CMakeFiles /home/hmp/learn_cmake/ipc_main/build/CMakeFiles/progress.marks
@@ -157,17 +157,17 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named ipc_main
+# Target rules for targets named cppipc_python
 
 # Build rule for target.
-ipc_main: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 ipc_main
-.PHONY : ipc_main
+cppipc_python: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 cppipc_python
+.PHONY : cppipc_python
 
 # fast build rule for target.
-ipc_main/fast:
-	$(MAKE) -f CMakeFiles/ipc_main.dir/build.make CMakeFiles/ipc_main.dir/build
-.PHONY : ipc_main/fast
+cppipc_python/fast:
+	$(MAKE) -f CMakeFiles/cppipc_python.dir/build.make CMakeFiles/cppipc_python.dir/build
+.PHONY : cppipc_python/fast
 
 #=============================================================================
 # Target rules for targets named ipc
@@ -179,35 +179,35 @@ ipc: cmake_check_build_system
 
 # fast build rule for target.
 ipc/fast:
-	$(MAKE) -f cpp-ipc/src/CMakeFiles/ipc.dir/build.make cpp-ipc/src/CMakeFiles/ipc.dir/build
+	$(MAKE) -f src/cpp-ipc/src/CMakeFiles/ipc.dir/build.make src/cpp-ipc/src/CMakeFiles/ipc.dir/build
 .PHONY : ipc/fast
 
-main.o: main.cpp.o
+src/main.o: src/main.cpp.o
 
-.PHONY : main.o
+.PHONY : src/main.o
 
 # target to build an object file
-main.cpp.o:
-	$(MAKE) -f CMakeFiles/ipc_main.dir/build.make CMakeFiles/ipc_main.dir/main.cpp.o
-.PHONY : main.cpp.o
+src/main.cpp.o:
+	$(MAKE) -f CMakeFiles/cppipc_python.dir/build.make CMakeFiles/cppipc_python.dir/src/main.cpp.o
+.PHONY : src/main.cpp.o
 
-main.i: main.cpp.i
+src/main.i: src/main.cpp.i
 
-.PHONY : main.i
+.PHONY : src/main.i
 
 # target to preprocess a source file
-main.cpp.i:
-	$(MAKE) -f CMakeFiles/ipc_main.dir/build.make CMakeFiles/ipc_main.dir/main.cpp.i
-.PHONY : main.cpp.i
+src/main.cpp.i:
+	$(MAKE) -f CMakeFiles/cppipc_python.dir/build.make CMakeFiles/cppipc_python.dir/src/main.cpp.i
+.PHONY : src/main.cpp.i
 
-main.s: main.cpp.s
+src/main.s: src/main.cpp.s
 
-.PHONY : main.s
+.PHONY : src/main.s
 
 # target to generate assembly for a file
-main.cpp.s:
-	$(MAKE) -f CMakeFiles/ipc_main.dir/build.make CMakeFiles/ipc_main.dir/main.cpp.s
-.PHONY : main.cpp.s
+src/main.cpp.s:
+	$(MAKE) -f CMakeFiles/cppipc_python.dir/build.make CMakeFiles/cppipc_python.dir/src/main.cpp.s
+.PHONY : src/main.cpp.s
 
 # Help Target
 help:
@@ -215,17 +215,17 @@ help:
 	@echo "... all (the default if no target is provided)"
 	@echo "... clean"
 	@echo "... depend"
-	@echo "... install/strip"
 	@echo "... install/local"
 	@echo "... install"
 	@echo "... list_install_components"
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
-	@echo "... ipc_main"
+	@echo "... install/strip"
+	@echo "... cppipc_python"
 	@echo "... ipc"
-	@echo "... main.o"
-	@echo "... main.i"
-	@echo "... main.s"
+	@echo "... src/main.o"
+	@echo "... src/main.i"
+	@echo "... src/main.s"
 .PHONY : help
 
 
