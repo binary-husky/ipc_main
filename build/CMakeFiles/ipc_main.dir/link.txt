@@ -1,0 +1,1 @@
+/usr/bin/c++     CMakeFiles/ipc_main.dir/main.cpp.o  -o ipc_main  lib/libipc.a -lpthread -lrt 
