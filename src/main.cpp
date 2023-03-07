@@ -9,13 +9,13 @@
 
 #include "libipc/ipc.h"
 
+namespace py = pybind11;
 
 class ShareMemServer
 {
 public:
     std::string server_listen_channel; 
     std::string client_listen_channel; 
-    std::atomic<bool> is_quit__ {false};
     
     ipc::channel *server_listen_ipc = nullptr;
     ipc::channel *client_listen_ipc = nullptr;
@@ -43,14 +43,36 @@ public:
             std::cout << "client_listen_ipc->disconnect(); " << std::endl;
         }
     }
-public:
     std::string wait_next_dgram() 
     {
+
+        ipc::buff_t recv;
         if (debug) 
         {
             std::cout << "wait_next_dgram" << std::endl;
         }
-        ipc::buff_t recv = server_listen_ipc->recv();
+
+
+        // listen until something is received
+        for (;;) {
+            if (PyErr_CheckSignals() != 0)
+                throw py::error_already_set();
+
+            // fucking python GIL
+            py::gil_scoped_release release;
+            recv = server_listen_ipc->recv(1000);
+            py::gil_scoped_acquire acquire;
+            
+            if (!recv.empty()){
+                break;
+            }
+            if (debug) 
+            {
+                std::cout << "[server] no recv,  keep waiting" << std::endl;
+            }
+        }
+        // py::gil_scoped_acquire acquire;
+
         std::string dat { recv.get<char const *>(), recv.size() - 1 };
         if (debug) 
         {
@@ -79,12 +101,16 @@ class ShareMemClient
 public:
     std::string server_listen_channel; 
     std::string client_listen_channel; 
-    std::atomic<bool> is_quit__ {false};
     
     ipc::channel *server_listen_ipc = nullptr;
     ipc::channel *client_listen_ipc = nullptr;
     bool debug = true;
 
+    // Factory function:
+    static ShareMemClient create(std::string channel, bool debug_network) 
+    { 
+        return ShareMemClient(channel, debug_network); 
+    }
 
     ShareMemClient(std::string channel, bool debug_network) { // Constructor with parameters
         debug = debug_network;
@@ -121,6 +147,7 @@ public:
     }
 
     std::string  send_and_wait_reply(std::string buffer) {
+        
         // send
         if (debug) 
         {
@@ -137,7 +164,30 @@ public:
         {
             std::cout << "send_and_wait_reply" << std::endl;
         }
-        ipc::buff_t recv = client_listen_ipc->recv();
+        ipc::buff_t recv;
+
+        // listen until something is received
+        // py::gil_scoped_release release;
+        for (;;) {
+            if (PyErr_CheckSignals() != 0)
+                throw py::error_already_set();
+
+            // fucking python GIL
+            py::gil_scoped_release release;
+            recv = client_listen_ipc->recv(1000);
+            py::gil_scoped_acquire acquire;
+
+            if (!recv.empty()){
+                break;
+            }
+            if (debug) 
+            {
+                std::cout << "[client] no recv,  keep waiting" << std::endl;
+            }
+        }
+        // py::gil_scoped_acquire acquire;
+
+
         std::string dat { recv.get<char const *>(), recv.size() - 1 };
         if (debug) 
         {
@@ -176,7 +226,11 @@ int add(int i, int j, int k) {
 
 class Animal {
 public:
-    virtual ~Animal() { }
+    ~Animal() { 
+
+            std::cout << "[Animal] ~Animal()" << std::endl;
+
+    }
     virtual std::string go(int n_times) = 0;
 };
 
@@ -187,34 +241,6 @@ public:
         for (int i=0; i<n_times; ++i)
             result += "woof! ";
         return result;
-    }
-
-    std::atomic<bool> is_quit__ {false};
-    ipc::channel *ipc__ = nullptr;
-
-    void do_send(int size, int interval) {
-        ipc::channel ipc {"ipc", ipc::sender};
-        ipc__ = &ipc;
-        std::string buffer(size, 'A');
-        while (!is_quit__.load(std::memory_order_acquire)) {
-            std::cout << "send size: " << buffer.size() + 1 << "\n";
-            ipc.send(buffer, 0/*tm*/);
-            std::this_thread::sleep_for(std::chrono::milliseconds(interval));
-        }
-    }
-
-    void do_recv(int interval) {
-        ipc::channel ipc {"ipc", ipc::receiver};
-        ipc__ = &ipc;
-        while (true) {
-            ipc::buff_t recv;
-            for (int k = 1; recv.empty(); ++k) {
-                std::cout << "recv waiting... " << k << "\n";
-                recv = ipc.recv(interval);
-                if (is_quit__.load(std::memory_order_acquire)) return;
-            }
-            std::cout << "recv size: " << recv.size() << "\n";
-        }
     }
 
 };
@@ -237,7 +263,6 @@ std::string call_go(Animal *animal) {
 
 
 
-namespace py = pybind11;
 
 PYBIND11_MODULE(cppipc_python, m) {
 
@@ -252,17 +277,29 @@ PYBIND11_MODULE(cppipc_python, m) {
     py::class_<Dog, Animal>(m, "Dog")
         .def(py::init<>());
 
+    py::class_<ShareMemServer>(m, "ShareMemServer")
+        .def(py::init([](std::string c, bool db) {
+            return std::unique_ptr<ShareMemServer>(new ShareMemServer(c, db));
+        }))
+        .def("wait_next_dgram", &ShareMemServer::wait_next_dgram)
+        .def("reply", &ShareMemServer::reply);
+
 
     py::class_<ShareMemClient>(m, "ShareMemClient")
-        .def("send_dgram_to_target", &ShareMemClient::send_dgram_to_target);
+        .def(py::init([](std::string c, bool db) {
+            return std::unique_ptr<ShareMemClient>(new ShareMemClient(c, db));
+        }))
+        .def("send_dgram_to_target", &ShareMemClient::send_dgram_to_target)
+        .def("send_and_wait_reply", &ShareMemClient::send_and_wait_reply);
 
 
 
 
-
-// #ifdef VERSION_INFO
-//     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
-// #else
-//     m.attr("__version__") = "dev";
-// #endif
+#define STRINGIFY(x) #x
+#define MACRO_STRINGIFY(x) STRINGIFY(x)
+#ifdef VERSION_INFO
+    m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
+#else
+    m.attr("__version__") = "dev";
+#endif
 }
