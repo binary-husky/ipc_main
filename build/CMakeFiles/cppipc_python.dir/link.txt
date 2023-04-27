@@ -1,1 +1,0 @@
-/usr/bin/c++ -fPIC  -flto -shared  -o cppipc_python.cpython-38-x86_64-linux-gnu.so CMakeFiles/cppipc_python.dir/src/main.cpp.o  lib/libipc.a -lpthread -lrt 

@@ -1,9 +1,9 @@
-
 #include <pybind11/pybind11.h>
 #include <signal.h>
 #include <iostream>
 #include <string>
 #include <thread>
+#include <vector>
 #include <chrono>
 #include <atomic>
 
@@ -11,254 +11,81 @@
 
 namespace py = pybind11;
 
-class ShareMemServer
+#define send_tm 1000
+#define recv_tm 1000
+
+using namespace ipc;
+
+class py_channel: public channel
 {
+    using channel::channel; // Inherit the constructor
 public:
-    std::string server_listen_channel; 
-    std::string client_listen_channel; 
-    
-    ipc::channel *server_listen_ipc = nullptr;
-    ipc::channel *client_listen_ipc = nullptr;
-    bool debug = true;
-
-
-    ShareMemServer(std::string channel, bool debug_network) { // Constructor with parameters
-        debug = debug_network;
-        server_listen_channel = channel + "-server";
-        client_listen_channel = channel + "-client";
-        if (debug) 
+    py::bytes py_recv(std::uint64_t tm = invalid_value) {
+        py::gil_scoped_release release;
+        buff_t buff = channel::recv(tm);
+        py::gil_scoped_acquire acquire;
+        if (PyErr_CheckSignals() != 0)
+            throw py::error_already_set();
+        if (!buff.empty()){
+            char const* b = buff.get<char const*>();
+            return py::bytes(b, buff.size());
+        } 
+        else
         {
-            std::cout << "server_listen_channel: " << server_listen_channel << std::endl;
-            std::cout << "client_listen_channel: " << client_listen_channel << std::endl;
-        }
-        server_listen_ipc = new ipc::channel {server_listen_channel.c_str(), ipc::receiver};
-        client_listen_ipc = new ipc::channel {client_listen_channel.c_str(), ipc::sender};
-    }
-    ~ShareMemServer() {
-        server_listen_ipc->disconnect();
-        client_listen_ipc->disconnect();
-        if (debug) 
-        {
-            std::cout << "server_listen_ipc->disconnect(); " << std::endl;
-            std::cout << "client_listen_ipc->disconnect(); " << std::endl;
+            return py::bytes("", 0);
         }
     }
-    std::string wait_next_dgram() 
-    {
 
-        ipc::buff_t recv;
-        if (debug) 
-        {
-            std::cout << "wait_next_dgram" << std::endl;
-        }
-
-
-        // listen until something is received
-        for (;;) {
-            if (PyErr_CheckSignals() != 0)
-                throw py::error_already_set();
-
-            // fucking python GIL
-            py::gil_scoped_release release;
-            recv = server_listen_ipc->recv(1000);
-            py::gil_scoped_acquire acquire;
-            
-            if (!recv.empty()){
-                break;
-            }
-            if (debug) 
-            {
-                std::cout << "[server] no recv,  keep waiting" << std::endl;
-            }
-        }
-        // py::gil_scoped_acquire acquire;
-
-        std::string dat { recv.get<char const *>(), recv.size() - 1 };
-        if (debug) 
-        {
-            std::cout << "[wait_next_dgram] get data" << dat << std::endl;
-        }
-        return dat;
+    bool py_send(py::bytes bytes, std::uint64_t tm = default_timeout) {
+        // 获得数据指针和大小
+        char* data = PYBIND11_BYTES_AS_STRING(bytes.ptr());
+        size_t size = static_cast<size_t>(PYBIND11_BYTES_SIZE(bytes.ptr()));
+        return channel::send(data, size, tm);
     }
 
-    void reply(std::string reply_buffer) {
-        if (debug) 
-        {
-            std::cout << "reply sending: " << reply_buffer << std::endl;
-        }
-        bool success = client_listen_ipc->try_send(reply_buffer, 0/*tm*/);
-        if (debug) 
-        {
-            std::cout << "reply success?" << success << std::endl;
-        }
-
+    void py_close() {
+        return channel::disconnect();
     }
 
 };
 
-class ShareMemClient
+
+
+
+
+
+class py_route: public route
 {
+    using route::route; // Inherit the constructor
 public:
-    std::string server_listen_channel; 
-    std::string client_listen_channel; 
-    
-    ipc::channel *server_listen_ipc = nullptr;
-    ipc::channel *client_listen_ipc = nullptr;
-    bool debug = true;
-
-    // Factory function:
-    static ShareMemClient create(std::string channel, bool debug_network) 
-    { 
-        return ShareMemClient(channel, debug_network); 
-    }
-
-    ShareMemClient(std::string channel, bool debug_network) { // Constructor with parameters
-        debug = debug_network;
-        server_listen_channel = channel + "-server";
-        client_listen_channel = channel + "-client";
-        if (debug) 
+    py::bytes py_recv(std::uint64_t tm = invalid_value) {
+        py::gil_scoped_release release;
+        buff_t buff = route::recv(tm);
+        py::gil_scoped_acquire acquire;
+        if (PyErr_CheckSignals() != 0)
+            throw py::error_already_set();
+        if (!buff.empty()){
+            char const* b = buff.get<char const*>();
+            return py::bytes(b, buff.size());
+        } 
+        else
         {
-            std::cout << "server_listen_channel: " << server_listen_channel << std::endl;
-            std::cout << "client_listen_channel: " << client_listen_channel << std::endl;
-        }
-        server_listen_ipc = new ipc::channel {server_listen_channel.c_str(), ipc::sender};
-        client_listen_ipc = new ipc::channel {client_listen_channel.c_str(), ipc::receiver};
-    }
-    ~ShareMemClient() {
-        server_listen_ipc->disconnect();
-        client_listen_ipc->disconnect();
-        if (debug) 
-        {
-            std::cout << "server_listen_ipc->disconnect(); " << std::endl;
-            std::cout << "client_listen_ipc->disconnect(); " << std::endl;
-        }
-    }
-    void send_dgram_to_target(std::string buffer) 
-    {
-        if (debug) 
-        {
-            std::cout << "sending: " << buffer << std::endl;
-        }
-        bool success = server_listen_ipc->try_send(buffer, 0/*tm*/);
-        if (debug) 
-        {
-            std::cout << "success?" << success << std::endl;
+            return py::bytes("", 0);
         }
     }
 
-    std::string  send_and_wait_reply(std::string buffer) {
-        
-        // send
-        if (debug) 
-        {
-            std::cout << "sending: " << buffer << std::endl;
-        }
-        bool success = server_listen_ipc->try_send(buffer, 0/*tm*/);
-        if (debug) 
-        {
-            std::cout << "success?" << success << std::endl;
-        }
+    bool py_send(py::bytes bytes, std::uint64_t tm = default_timeout) {
+        // 获得数据指针和大小
+        char* data = PYBIND11_BYTES_AS_STRING(bytes.ptr());
+        size_t size = static_cast<size_t>(PYBIND11_BYTES_SIZE(bytes.ptr()));
+        return route::send(data, size, tm);
+    }
 
-        // wait_reply
-        if (debug) 
-        {
-            std::cout << "send_and_wait_reply" << std::endl;
-        }
-        ipc::buff_t recv;
-
-        // listen until something is received
-        // py::gil_scoped_release release;
-        for (;;) {
-            if (PyErr_CheckSignals() != 0)
-                throw py::error_already_set();
-
-            // fucking python GIL
-            py::gil_scoped_release release;
-            recv = client_listen_ipc->recv(1000);
-            py::gil_scoped_acquire acquire;
-
-            if (!recv.empty()){
-                break;
-            }
-            if (debug) 
-            {
-                std::cout << "[client] no recv,  keep waiting" << std::endl;
-            }
-        }
-        // py::gil_scoped_acquire acquire;
-
-
-        std::string dat { recv.get<char const *>(), recv.size() - 1 };
-        if (debug) 
-        {
-            std::cout << "[send_and_wait_reply] get data" << dat << std::endl;
-        }
-        return dat;
+    void py_close() {
+        return route::disconnect();
     }
 
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-int add(int i, int j, int k) {
-    return i + j + k;
-}
-
-class Animal {
-public:
-    ~Animal() { 
-
-            std::cout << "[Animal] ~Animal()" << std::endl;
-
-    }
-    virtual std::string go(int n_times) = 0;
-};
-
-class Dog : public Animal {
-public:
-    std::string go(int n_times) override {
-        std::string result;
-        for (int i=0; i<n_times; ++i)
-            result += "woof! ";
-        return result;
-    }
-
-};
-std::string call_go(Animal *animal) {
-    return animal->go(3);
-}
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -266,34 +93,41 @@ std::string call_go(Animal *animal) {
 
 PYBIND11_MODULE(cppipc_python, m) {
 
-
-    m.def("add", &add,  py::arg("i"), py::arg("j"), py::arg("k"));
-
-    m.def("subtract", [](int i, int j) { return i - j; });
-
-    py::class_<Animal>(m, "Animal")
-        .def("go", &Animal::go);
-
-    py::class_<Dog, Animal>(m, "Dog")
-        .def(py::init<>());
-
-    py::class_<ShareMemServer>(m, "ShareMemServer")
-        .def(py::init([](std::string c, bool db) {
-            return std::unique_ptr<ShareMemServer>(new ShareMemServer(c, db));
+    py::class_<py_channel>(m, "py_channel")
+        .def(py::init([](std::string channel, std::string role) 
+        {
+            const char* cstr = channel.c_str();
+            if (role=="receiver"){
+                return std::unique_ptr<py_channel>(new py_channel(cstr, receiver));
+            }
+            else if (role=="sender"){
+                return std::unique_ptr<py_channel>(new py_channel(cstr, sender));
+            }
+            else{
+                return std::unique_ptr<py_channel>(nullptr);
+            }
         }))
-        .def("wait_next_dgram", &ShareMemServer::wait_next_dgram)
-        .def("reply", &ShareMemServer::reply);
+        .def("py_recv", &py_channel::py_recv)
+        .def("py_send", &py_channel::py_send)
+        .def("py_close", &py_channel::py_close);
 
-
-    py::class_<ShareMemClient>(m, "ShareMemClient")
-        .def(py::init([](std::string c, bool db) {
-            return std::unique_ptr<ShareMemClient>(new ShareMemClient(c, db));
+    py::class_<py_route>(m, "py_route")
+        .def(py::init([](std::string channel, std::string role) 
+        {
+            const char* cstr = channel.c_str();
+            if (role=="receiver"){
+                return std::unique_ptr<py_route>(new py_route(cstr, receiver));
+            }
+            else if (role=="sender"){
+                return std::unique_ptr<py_route>(new py_route(cstr, sender));
+            }
+            else{
+                return std::unique_ptr<py_route>(nullptr);
+            }
         }))
-        .def("send_dgram_to_target", &ShareMemClient::send_dgram_to_target)
-        .def("send_and_wait_reply", &ShareMemClient::send_and_wait_reply);
-
-
-
+        .def("py_recv", &py_route::py_recv)
+        .def("py_send", &py_route::py_send)
+        .def("py_close", &py_route::py_close);
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)

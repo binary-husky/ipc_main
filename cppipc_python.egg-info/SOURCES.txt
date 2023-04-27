@@ -1,0 +1,15 @@
+setup.py
+cppipc_python.egg-info/PKG-INFO
+cppipc_python.egg-info/SOURCES.txt
+cppipc_python.egg-info/dependency_links.txt
+cppipc_python.egg-info/not-zip-safe
+cppipc_python.egg-info/requires.txt
+cppipc_python.egg-info/top_level.txt
+test/test_ipc.py
+test/test_ipc_client.py
+test/test_ipc_lib.py
+test/test_ipc_lib_client.py
+test/test_ipc_lib_compare.py
+test/test_ipc_lib_route.py
+test/test_ipc_lib_server.py
+test/test_ipc_server.py
